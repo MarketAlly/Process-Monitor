@@ -81,14 +81,24 @@ void ScheduleProcessStart(ProcessInfo processInfo)
 
 	var timer = new System.Threading.Timer(_ =>
 	{
-		ProcessStartInfo startInfo = new ProcessStartInfo
+		var runningProcesses = Process.GetProcessesByName(processInfo.Name);
+		if (runningProcesses.Length == 0)
 		{
-			FileName = processInfo.Path,
-			CreateNoWindow = !openInNewWindow, // Controlled by the user's choice
-			UseShellExecute = true, // Use the system shell to start the process
-		};
-		Process.Start(startInfo);
-		AppendToLogFile(processInfo, "run");
+			ProcessStartInfo startInfo = new ProcessStartInfo
+			{
+				FileName = processInfo.Path,
+				CreateNoWindow = !openInNewWindow, // Controlled by the user's choice
+				UseShellExecute = true, // Use the system shell to start the process
+			};
+			Process.Start(startInfo);
+			AppendToLogFile(processInfo, "run");
+		}
+		else
+		{
+			Console.WriteLine($"Process still running {processInfo.Name} at {DateTime.Now}, skipping for next interval");
+			AppendToLogFile(processInfo, "skipped");
+		}
+
 	}, null, delay, Timeout.InfiniteTimeSpan); // Run only once
 
 	Console.WriteLine($"Scheduled {processInfo.Name} to start at {scheduledTime}");
