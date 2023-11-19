@@ -1,0 +1,23 @@
+{
+  "processes": [
+    {
+      "name": "Chann3l.WebJob",
+      "count": 4,
+      "enable": false,
+      "path": "C:\\Solutions\\chann3ls\\Chann3l.MessageJob\\bin\\Debug\\Chann3l.WebJob.exe"
+    },
+    {
+      "name": "Chann3l.SymbolJob",
+      "count": 6,
+      "enable": false,
+      "path": "C:\\Solutions\\chann3ls\\Chann3l.SymbolJob\\bin\\Debug\\Chann3l.SymbolJob.exe"
+    },
+    {
+      "name": "Chann3l.StockJob",
+      "count": 1,
+      "enable": true,
+      "interval": 5,
+      "path": "C:\\Solutions\\chann3ls\\Chann3l.StockJob\\bin\\Debug\\Chann3l.StockJob.exe"
+    }
+  ]
+}
