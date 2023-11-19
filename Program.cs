@@ -54,14 +54,20 @@ void EnsureProcessRunning(ProcessInfo processInfo, int desiredCount)
 
 	for (int i = 0; i < countToStart; i++)
 	{
-		ProcessStartInfo startInfo = new ProcessStartInfo
+		if (openInNewWindow)
 		{
-			FileName = processInfo.Path,
-			CreateNoWindow = !openInNewWindow, // Controlled by the user's choice
-			UseShellExecute = true, // Use the system shell to start the process
-		};
+			ProcessStartInfo startInfo = new ProcessStartInfo
+			{
+				FileName = processInfo.Path,
+				CreateNoWindow = !openInNewWindow, // Controlled by the user's choice
+				UseShellExecute = true, // Use the system shell to start the process
+			};
+			Process.Start(startInfo);
+		} else
+		{
+			Process.Start(processInfo.Path);
+		}
 
-		Process.Start(startInfo);
 		Console.WriteLine($"Started {processInfo.Name} at {DateTime.Now}");
 		AppendToLogFile(processInfo, "launched");
 	}
@@ -84,13 +90,20 @@ void ScheduleProcessStart(ProcessInfo processInfo)
 		var runningProcesses = Process.GetProcessesByName(processInfo.Name);
 		if (runningProcesses.Length == 0)
 		{
-			ProcessStartInfo startInfo = new ProcessStartInfo
+			if (openInNewWindow)
 			{
-				FileName = processInfo.Path,
-				CreateNoWindow = !openInNewWindow, // Controlled by the user's choice
-				UseShellExecute = true, // Use the system shell to start the process
-			};
-			Process.Start(startInfo);
+				ProcessStartInfo startInfo = new ProcessStartInfo
+				{
+					FileName = processInfo.Path,
+					CreateNoWindow = !openInNewWindow, // Controlled by the user's choice
+					UseShellExecute = true, // Use the system shell to start the process
+				};
+				Process.Start(startInfo);
+			}
+			else
+			{
+				Process.Start(processInfo.Path);
+			}
 			AppendToLogFile(processInfo, "run");
 		}
 		else
@@ -112,13 +125,20 @@ void ScheduleRepeatedExecution(ProcessInfo processInfo)
 		var runningProcesses = Process.GetProcessesByName(processInfo.Name);
 		if (runningProcesses.Length == 0)
 		{
-			ProcessStartInfo startInfo = new ProcessStartInfo
+			if (openInNewWindow)
 			{
-				FileName = processInfo.Path,
-				CreateNoWindow = !openInNewWindow, // Controlled by the user's choice
-				UseShellExecute = true, // Use the system shell to start the process
-			};
-			Process.Start(startInfo);
+				ProcessStartInfo startInfo = new ProcessStartInfo
+				{
+					FileName = processInfo.Path,
+					CreateNoWindow = !openInNewWindow, // Controlled by the user's choice
+					UseShellExecute = true, // Use the system shell to start the process
+				};
+				Process.Start(startInfo);
+			}
+			else
+			{
+				Process.Start(processInfo.Path);
+			}
 			Console.WriteLine($"Started {processInfo.Name} at {DateTime.Now}");
 			AppendToLogFile(processInfo, "run");
 		} else
