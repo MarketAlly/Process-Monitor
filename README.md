@@ -53,6 +53,58 @@ This utility is a process monitoring and management tool written in C#. It allow
 - `AppendToLogFile`: Logs actions to a weekly log file.
 - `GetLogFileName`: Generates a filename for the log based on the current week of the year.
 
+## ProcessInfo Class
+
+The `ProcessInfo` class is a key component of the utility, defining the structure and properties of each process that needs to be monitored or managed. Here is a detailed explanation of its properties:
+
+### Properties
+
+- **Name (`string`)**: 
+  - **Description**: The name of the process. This is used to identify and manage the process within the system.
+  - **Example**: `"ExampleProcess"`
+
+- **Path (`string`)**: 
+  - **Description**: The file path to the executable of the process. This path is used to start the process.
+  - **Example**: `"C:\\Program Files\\ExampleProcess\\process.exe"`
+
+- **Count (`Int32`)**: 
+  - **Description**: The desired number of instances of this process to be running simultaneously. This is used to ensure that a specific number of process instances are active.
+  - **Example**: `3`
+
+- **Time (`string`)**: 
+  - **Description**: The specific time of day when the process should be launched. It should be in the format of "HH:mm" (hour and minute).
+  - **Example**: `"14:30"` (This would launch the process at 2:30 PM)
+
+- **Interval (`int?`)**: 
+  - **Description**: The frequency, in minutes, at which the process should be launched. This is used to schedule repeated execution of the process. If null, it indicates that the process does not need to be started at regular intervals.
+  - **Example**: `15` (This would schedule the process to start every 15 minutes)
+
+- **Enable (`bool`)**: 
+  - **Description**: A flag indicating whether the process monitoring or management for this particular process should be enabled or disabled.
+  - **Example**: `true` (This would enable the process monitoring and management)
+
+### Usage in JSON Configuration
+
+In the `processlist.json` file, each process to be managed should be defined as an object with the above properties. For example:
+
+```json
+{
+    "processes": [
+        {
+            "Name": "ExampleProcess",
+            "Path": "C:\\Program Files\\ExampleProcess\\process.exe",
+            "Count": 3,
+            "Time": "14:30",
+            "Interval": 15,
+            "Enable": true
+        },
+        // More processes can be added here
+    ]
+}
+```
+
+Each process object in the array represents a separate process configuration that the utility will manage based on the provided details.
+
 ## Notes
 
 - The program uses a 10-second loop to continuously check and manage processes.
