@@ -1,177 +1,91 @@
-﻿using marketally.processmonitor;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using System.Diagnostics;
+using MarketAlly.ProcessMonitor.Interfaces;
+using MarketAlly.ProcessMonitor.Models;
+using MarketAlly.ProcessMonitor.Services;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Serilog;
+using Serilog.Events;
 
-// Asking the user if they want to open new processes in a separate window
-Console.WriteLine("Do you want to start processes in a new window? (yes/no)");
-string userInput = Console.ReadLine().ToLower();
-bool openInNewWindow = userInput == "yes";
+namespace MarketAlly.ProcessMonitor;
 
-double checkOnce = 0;
-
-// The main loop that continuously checks and manages processes
-while (true)
+public class Program
 {
-	// Define the path to the JSON file containing process information
-	string jsonFilePath = "processlist.json"; // Relative path to the JSON file
-	string json = File.ReadAllText(jsonFilePath);
-	var jObject = JObject.Parse(json);
-	var processInfos = jObject["processes"].ToObject<List<ProcessInfo>>();
+    static async Task Main(string[] args)
+    {
+        // Configure Serilog
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
+            .Enrich.FromLogContext()
+            .Enrich.WithMachineName()
+            .Enrich.WithProcessId()
+            .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+            .WriteTo.File("logs/processmonitor-.log",
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 30,
+                outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}")
+            .CreateLogger();
 
-	foreach (var processInfo in processInfos.Where(x => x.Enable))
-	{
-		// Check if it's the first run and if the process has a specific interval set
-		if (checkOnce == 0 && processInfo.Interval.HasValue)
-		{
-			// Schedule repeated execution
-			ScheduleRepeatedExecution(processInfo);
-		}
-		// If no specific time is set, ensure the process is running continuously
-		else if (string.IsNullOrEmpty(processInfo.Time))
-		{
-			// Run continuously
-			EnsureProcessRunning(processInfo, processInfo.Count);
-		}
-		// If it's the first run and a specific time is set, schedule the process
-		else if (checkOnce == 0) 
-		{
-			// Schedule for a specific time
-			ScheduleProcessStart(processInfo);
-		}
-	}
-	// After the first iteration, set checkOnce to 1 to avoid rescheduling
-	if (checkOnce == 0)
-		checkOnce = 1;
-	Thread.Sleep(10000); // Wait for 10 seconds before checking again
-}
+        try
+        {
+            Log.Information("Starting Process Monitor");
+            await CreateHostBuilder(args).RunConsoleAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "Application terminated unexpectedly");
+        }
+        finally
+        {
+            await Log.CloseAndFlushAsync();
+        }
+    }
 
-// Ensures the desired number of instances of a process are running
-void EnsureProcessRunning(ProcessInfo processInfo, int desiredCount)
-{
-	var runningProcesses = Process.GetProcessesByName(processInfo.Name);
-	int countToStart = desiredCount - runningProcesses.Length;
-
-	for (int i = 0; i < countToStart; i++)
-	{
-		if (openInNewWindow)
-		{
-			ProcessStartInfo startInfo = new ProcessStartInfo
-			{
-				FileName = processInfo.Path,
-				CreateNoWindow = !openInNewWindow, // Controlled by the user's choice
-				UseShellExecute = true, // Use the system shell to start the process
-			};
-			Process.Start(startInfo);
-		} else
-		{
-			Process.Start(processInfo.Path);
-		}
-
-		Console.WriteLine($"Started {processInfo.Name} at {DateTime.Now}");
-		AppendToLogFile(processInfo, "launched");
-	}
-}
-
-// Schedules a process to start at a specific time
-void ScheduleProcessStart(ProcessInfo processInfo)
-{
-	DateTime scheduledTime = DateTime.Today.Add(TimeSpan.Parse(processInfo.Time));
-	TimeSpan delay = scheduledTime - DateTime.Now;
-
-	if (delay < TimeSpan.Zero)
-	{
-		// Scheduled time is in the past. Schedule for the next day or handle as needed.
-		delay = delay.Add(TimeSpan.FromDays(1));
-	}
-
-	var timer = new System.Threading.Timer(_ =>
-	{
-		var runningProcesses = Process.GetProcessesByName(processInfo.Name);
-		if (runningProcesses.Length == 0)
-		{
-			if (openInNewWindow)
-			{
-				ProcessStartInfo startInfo = new ProcessStartInfo
-				{
-					FileName = processInfo.Path,
-					CreateNoWindow = !openInNewWindow, // Controlled by the user's choice
-					UseShellExecute = true, // Use the system shell to start the process
-				};
-				Process.Start(startInfo);
-			}
-			else
-			{
-				Process.Start(processInfo.Path);
-			}
-			AppendToLogFile(processInfo, "run");
-		}
-		else
-		{
-			Console.WriteLine($"Process still running {processInfo.Name} at {DateTime.Now}, skipping for next interval");
-			AppendToLogFile(processInfo, "skipped");
-		}
-
-	}, null, delay, Timeout.InfiniteTimeSpan); // Run only once
-
-	Console.WriteLine($"Scheduled {processInfo.Name} to start at {scheduledTime}");
-}
-
-// Schedules a process for repeated execution
-void ScheduleRepeatedExecution(ProcessInfo processInfo)
-{
-	var timer = new System.Threading.Timer(_ =>
-	{
-		var runningProcesses = Process.GetProcessesByName(processInfo.Name);
-		if (runningProcesses.Length == 0)
-		{
-			if (openInNewWindow)
-			{
-				ProcessStartInfo startInfo = new ProcessStartInfo
-				{
-					FileName = processInfo.Path,
-					CreateNoWindow = !openInNewWindow, // Controlled by the user's choice
-					UseShellExecute = true, // Use the system shell to start the process
-				};
-				Process.Start(startInfo);
-			}
-			else
-			{
-				Process.Start(processInfo.Path);
-			}
-			Console.WriteLine($"Started {processInfo.Name} at {DateTime.Now}");
-			AppendToLogFile(processInfo, "run");
-		} else
-		{
-			Console.WriteLine($"Process still running {processInfo.Name} at {DateTime.Now}, skipping for next interval");
-			AppendToLogFile(processInfo, "skipped");
-		}
-	}, null, TimeSpan.Zero, TimeSpan.FromMinutes(processInfo.Interval.Value));
-
-	Console.WriteLine($"Scheduled {processInfo.Name} to run every {processInfo.Interval.Value} minutes");
-}
-
-// Appends a log entry for a process action
-void AppendToLogFile(ProcessInfo processInfo, string state)
-{
-	string logFilePath = Path.Combine("Logs", GetLogFileName()); // Store logs in a "Logs" subfolder
-	string logEntry = $"{DateTime.Now}: {processInfo.Name} was {state}.";
-
-	if (!Directory.Exists("Logs"))
-	{
-		Directory.CreateDirectory("Logs");
-	}
-
-	File.AppendAllText(logFilePath, logEntry + Environment.NewLine);
-}
-
-string GetLogFileName()
-{
-	var cultureInfo = System.Globalization.CultureInfo.CurrentCulture;
-	int weekNo = cultureInfo.Calendar.GetWeekOfYear(
-		DateTime.Now,
-		cultureInfo.DateTimeFormat.CalendarWeekRule,
-		cultureInfo.DateTimeFormat.FirstDayOfWeek);
-
-	return $"processLog_{DateTime.Now.Year}_Week{weekNo}.log";
+    static IHostBuilder CreateHostBuilder(string[] args) =>
+        Host.CreateDefaultBuilder(args)
+            .UseSerilog()
+            .ConfigureAppConfiguration((context, config) =>
+            {
+                config
+                    .SetBasePath(AppContext.BaseDirectory)
+                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                    .AddJsonFile($"appsettings.{context.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+                    .AddEnvironmentVariables()
+                    .AddCommandLine(args);
+            })
+            .ConfigureServices((context, services) =>
+            {
+                // Configure app settings
+                services.Configure<AppSettings>(context.Configuration.GetSection("ProcessMonitor"));
+                
+                // Register services
+                services.AddSingleton<IMemoryCache, MemoryCache>();
+                services.AddSingleton(provider =>
+                {
+                    var configuration = provider.GetRequiredService<IConfiguration>();
+                    var appSettings = new AppSettings();
+                    configuration.GetSection("ProcessMonitor").Bind(appSettings);
+                    return appSettings;
+                });
+                
+                services.AddSingleton<IProcessValidator, ProcessValidator>();
+                services.AddSingleton<IProcessManager, ProcessManager>();
+                services.AddSingleton<IScheduler, ProcessScheduler>();
+                services.AddSingleton<IConfigurationService, ConfigurationService>();
+                
+                // Register hosted services
+                services.AddHostedService<ProcessMonitorService>();
+                services.AddHostedService<PerformanceMonitoringService>();
+                
+                // Configure logging
+                services.AddLogging(builder =>
+                {
+                    builder.ClearProviders();
+                    builder.AddSerilog();
+                });
+            })
+            .UseConsoleLifetime();
 }

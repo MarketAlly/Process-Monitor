@@ -1,12 +1,17 @@
 {
+  "version": "1.0",
   "processes": [
     {
-      "name": "",
-      "count": 3,
-      "enable": true,
+      "name": "ExampleProcess",
+      "path": "C:\\Windows\\System32\\notepad.exe",
+      "count": 1,
+      "enable": false,
       "interval": 5,
       "time": "15:25",
-      "path": ""
+      "arguments": "",
+      "workingDirectory": "",
+      "maxRetries": 3,
+      "retryDelaySeconds": 5
     }
   ]
 }

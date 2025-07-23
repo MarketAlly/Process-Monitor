@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  processmonitor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: marketally/processmonitor:latest
+    container_name: process-monitor
+    restart: unless-stopped
+    volumes:
+      - ./processlist.json:/app/processlist.json:ro
+      - ./appsettings.json:/app/appsettings.json:ro
+      - ./logs:/app/logs
+    environment:
+      - DOTNET_ENVIRONMENT=Production
+      - ProcessMonitor__EnableDebugLogging=false
+      - ProcessMonitor__MonitoringIntervalSeconds=10
+    networks:
+      - processmonitor-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+networks:
+  processmonitor-network:
+    driver: bridge
